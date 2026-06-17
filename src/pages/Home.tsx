@@ -166,7 +166,7 @@ export default function Home() {
                 <div
                   className="md:w-64 h-48 md:h-auto bg-cover bg-center relative shrink-0 cursor-pointer"
                   style={{ backgroundImage: `url(${continueCourse.cover})` }}
-                  onClick={() => navigate(`/course/${continueCourse.id}`)}
+                  onClick={() => navigate(`/courses/${continueCourse.id}`)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">
@@ -224,7 +224,7 @@ export default function Home() {
                       <Button
                         size="lg"
                         rightIcon={<ArrowRight className="w-5 h-5" />}
-                        onClick={() => navigate(`/course/${continueCourse.id}`)}
+                        onClick={() => navigate(`/courses/${continueCourse.id}`)}
                       >
                         继续学习
                       </Button>
@@ -260,7 +260,7 @@ export default function Home() {
                   'transition-all duration-500 ease-out'
                 )}
                 style={{ animationDelay: `${idx * 80}ms` }}
-                onClick={() => navigate(`/course/${course.id}`)}
+                onClick={() => navigate(`/courses/${course.id}`)}
               >
                 <div
                   className="h-40 bg-cover bg-center relative"

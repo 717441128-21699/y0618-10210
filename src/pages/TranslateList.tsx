@@ -29,6 +29,7 @@ const statusTabs = [
   { value: 'pending', label: '待接单' },
   { value: 'accepted', label: '已确认' },
   { value: 'completed', label: '已完成' },
+  { value: 'cancelled', label: '已取消' },
 ];
 
 const sceneTags = [
@@ -301,7 +302,7 @@ export default function TranslateList() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => navigate(`/translate/detail/${order.id}`)}
+                      onClick={() => navigate(`/translate/${order.id}`)}
                       rightIcon={<ChevronRight className="w-4 h-4" />}
                     >
                       查看详情

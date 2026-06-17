@@ -24,6 +24,8 @@ import {
   UserCheck,
   Heart,
   Users,
+  XCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -105,7 +107,7 @@ const mockMessages: ChatMessage[] = [
 export default function TranslateDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { currentOrder, loading, fetchOrder, completeOrder, acceptOrder } = useTranslateStore();
+  const { currentOrder, loading, fetchOrder, completeOrder, acceptOrder, cancelOrder } = useTranslateStore();
   const { user, fetchUser } = useUserStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>(mockMessages);
@@ -210,6 +212,12 @@ export default function TranslateDetail() {
       await completeOrder(orderId, rating, reviewText);
     }
     setTimeout(() => setIsSubmittingReview(false), 800);
+  };
+
+  const handleCancel = async () => {
+    if (!orderId) return;
+    if (!window.confirm('确定要取消这条翻译需求吗？取消后将通知等待中的译员。')) return;
+    await cancelOrder(orderId);
   };
 
   if (loading && !currentOrder) {
@@ -461,102 +469,114 @@ export default function TranslateDetail() {
             </div>
           </div>
 
-          {orderData.status === 'completed' && (
-            <div className="bg-surface-card rounded-2xl shadow-card border border-surface-border/60 p-6 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
-              {orderData.review ? (
-                <>
-                  <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2 text-lg">
-                    <Star className="w-5 h-5 text-accent-orange-500" fill="currentColor" />
-                    服务评价
-                  </h3>
-                  <div className="p-5 rounded-xl bg-gradient-to-br from-accent-orange-50 to-accent-yellow-50 border border-accent-orange-100">
-                    <div className="flex items-center gap-2 mb-3">
+          {orderData.status === 'accepted' && (
+            <div className="bg-surface-card rounded-2xl shadow-card border border-emerald-200 p-6 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2 text-lg">
+                <CheckCircle className="w-5 h-5 text-emerald-500" />
+                确认服务完成并评价
+              </h3>
+              <p className="text-sm text-text-tertiary mb-5 leading-relaxed">
+                译员已接单，服务结束后请在此确认完成并给予评价。提交后订单将转为「已完成」状态。
+              </p>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-3">整体满意度</label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
+                        <button
                           key={i}
-                          className={cn(
-                            'w-6 h-6 transition-colors',
-                            i < (orderData.review?.rating || 5)
-                              ? 'text-accent-orange-500'
-                              : 'text-surface-border'
-                          )}
-                          fill={i < (orderData.review?.rating || 5) ? 'currentColor' : 'none'}
-                        />
+                          onMouseEnter={() => setHoveredRating(i + 1)}
+                          onMouseLeave={() => setHoveredRating(0)}
+                          onClick={() => setRating(i + 1)}
+                          className="transition-all duration-200 hover:scale-125 p-1"
+                        >
+                          <Star
+                            className={cn(
+                              'w-8 h-8 transition-colors',
+                              (hoveredRating || rating) > i
+                                ? 'text-accent-orange-500'
+                                : 'text-surface-border'
+                            )}
+                            fill={(hoveredRating || rating) > i ? 'currentColor' : 'none'}
+                          />
+                        </button>
                       ))}
-                      <span className="ml-2 font-bold text-accent-orange-600">
-                        {orderData.review?.rating || 5}.0 分
-                      </span>
                     </div>
-                    <p className="text-text-secondary leading-relaxed">{orderData.review?.content}</p>
+                    <span className="text-lg font-bold text-accent-orange-600">
+                      {rating}.0 分
+                    </span>
                   </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2 text-lg">
-                    <Sparkles className="w-5 h-5 text-accent-orange-500" />
-                    服务评价
-                    <span className="text-xs font-normal text-text-tertiary">（服务完成后可评价）</span>
-                  </h3>
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-3">整体满意度</label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <button
-                              key={i}
-                              onMouseEnter={() => setHoveredRating(i + 1)}
-                              onMouseLeave={() => setHoveredRating(0)}
-                              onClick={() => setRating(i + 1)}
-                              className="transition-all duration-200 hover:scale-125 p-1"
-                            >
-                              <Star
-                                className={cn(
-                                  'w-8 h-8 transition-colors',
-                                  (hoveredRating || rating) > i
-                                    ? 'text-accent-orange-500'
-                                    : 'text-surface-border'
-                                )}
-                                fill={(hoveredRating || rating) > i ? 'currentColor' : 'none'}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                        <span className="text-lg font-bold text-accent-orange-600">
-                          {rating}.0 分
-                        </span>
-                      </div>
-                    </div>
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">评价内容</label>
-                      <textarea
-                        value={reviewText}
-                        onChange={(e) => setReviewText(e.target.value)}
-                        rows={4}
-                        maxLength={500}
-                        placeholder="请分享您对本次翻译服务的感受，译员的专业度、沟通是否顺畅、有没有特别值得表扬的地方..."
-                        className="w-full px-4 py-3 rounded-xl border-2 border-surface-border bg-white text-sm text-text-primary placeholder:text-surface-muted focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-50 transition-all resize-none"
-                      />
-                      <div className="flex justify-end mt-2">
-                        <span className="text-xs text-text-tertiary">{reviewText.length}/500</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        loading={isSubmittingReview}
-                        onClick={submitReview}
-                        leftIcon={<CheckCircle2 className="w-5 h-5" />}
-                      >
-                        提交评价
-                      </Button>
-                    </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">评价内容</label>
+                  <textarea
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    rows={4}
+                    maxLength={500}
+                    placeholder="请分享您对本次翻译服务的感受，译员的专业度、沟通是否顺畅、有没有特别值得表扬的地方..."
+                    className="w-full px-4 py-3 rounded-xl border-2 border-surface-border bg-white text-sm text-text-primary placeholder:text-surface-muted focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-50 transition-all resize-none"
+                  />
+                  <div className="flex justify-end mt-2">
+                    <span className="text-xs text-text-tertiary">{reviewText.length}/500</span>
                   </div>
-                </>
-              )}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    loading={isSubmittingReview}
+                    onClick={submitReview}
+                    leftIcon={<CheckCircle2 className="w-5 h-5" />}
+                  >
+                    确认完成并提交评价
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {orderData.status === 'completed' && orderData.review && (
+            <div className="bg-surface-card rounded-2xl shadow-card border border-surface-border/60 p-6 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2 text-lg">
+                <Star className="w-5 h-5 text-accent-orange-500" fill="currentColor" />
+                服务评价
+              </h3>
+              <div className="p-5 rounded-xl bg-gradient-to-br from-accent-orange-50 to-accent-yellow-50 border border-accent-orange-100">
+                <div className="flex items-center gap-2 mb-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={cn(
+                        'w-6 h-6 transition-colors',
+                        i < (orderData.review?.rating || 5)
+                          ? 'text-accent-orange-500'
+                          : 'text-surface-border'
+                      )}
+                      fill={i < (orderData.review?.rating || 5) ? 'currentColor' : 'none'}
+                    />
+                  ))}
+                  <span className="ml-2 font-bold text-accent-orange-600">
+                    {orderData.review?.rating || 5}.0 分
+                  </span>
+                </div>
+                <p className="text-text-secondary leading-relaxed">{orderData.review?.content}</p>
+              </div>
+            </div>
+          )}
+
+          {orderData.status === 'cancelled' && (
+            <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+              <div className="flex items-center gap-3 mb-2">
+                <XCircle className="w-6 h-6 text-amber-500" />
+                <h3 className="font-bold text-amber-700 text-lg">需求已取消</h3>
+              </div>
+              <p className="text-sm text-amber-600/80 leading-relaxed">
+                这条翻译需求已取消。如仍需翻译服务，请重新发布一条新的需求。
+              </p>
             </div>
           )}
         </div>
@@ -650,9 +670,20 @@ export default function TranslateDetail() {
                     我们正在为您匹配最合适的手语翻译志愿者，通常会在24小时内有译员接单
                   </p>
                 </div>
-                <Button variant="primary" size="lg" className="w-full" onClick={() => acceptOrder(orderId || 't001')}>
-                  模拟译员接单（演示）
-                </Button>
+                <div className="space-y-3">
+                  <Button variant="primary" size="lg" className="w-full" onClick={() => acceptOrder(orderId || 't001')}>
+                    模拟译员接单（演示）
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    className="w-full !text-red-500 !border-red-200 hover:!bg-red-50"
+                    leftIcon={<XCircle className="w-4 h-4" />}
+                    onClick={handleCancel}
+                  >
+                    取消需求
+                  </Button>
+                </div>
               </div>
             )
           )}

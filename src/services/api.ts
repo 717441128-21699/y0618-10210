@@ -21,6 +21,7 @@ import type {
   CategoryRadarPoint,
   SubmittedExercise,
 } from '@/types';
+import { notifyLessonProgressChanged } from '@/lib/useCompletedLessons';
 import {
   mockUser,
   mockUserStats,
@@ -379,6 +380,7 @@ export const api = {
 
   async markLessonComplete(lessonId: string): Promise<ApiResponse<boolean>> {
     markLessonCompleted(lessonId);
+    notifyLessonProgressChanged();
     return ok(true);
   },
 
@@ -561,6 +563,20 @@ export const api = {
         translatorId: volunteer.id,
         translatorName: volunteer.name,
         translatorAvatar: volunteer.avatar,
+      };
+      saveTranslationOrders(orders);
+      return ok({ ...orders[idx] });
+    }
+    return ok(orders[0]);
+  },
+
+  async cancelOrder(orderId: string): Promise<ApiResponse<TranslationOrder>> {
+    const orders = getTranslationOrders();
+    const idx = orders.findIndex((o) => o.id === orderId);
+    if (idx !== -1) {
+      orders[idx] = {
+        ...orders[idx],
+        status: 'cancelled',
       };
       saveTranslationOrders(orders);
       return ok({ ...orders[idx] });

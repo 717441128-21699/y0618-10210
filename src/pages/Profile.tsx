@@ -350,7 +350,7 @@ export default function Profile() {
                         'flex gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-0.5',
                         highContrast ? 'hover:bg-gray-800' : 'hover:bg-surface-bg'
                       )}
-                      onClick={() => navigate(`/course/${course.id}`)}
+                      onClick={() => navigate(`/courses/${course.id}`)}
                     >
                       <div
                         className="w-20 h-14 rounded-lg bg-cover bg-center shrink-0"

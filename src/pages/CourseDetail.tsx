@@ -33,6 +33,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import type { Lesson } from '@/types';
 import { mockLessons } from '@/mock/data';
+import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 const levelTextMap: Record<string, string> = {
@@ -166,7 +167,6 @@ export default function CourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
   const { currentCourse, loading, fetchCourse } = useCourseStore();
   const [activeTab, setActiveTab] = useState('outline');
-  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (courseId) {
@@ -174,30 +174,13 @@ export default function CourseDetail() {
     }
   }, [courseId, fetchCourse]);
 
-  useEffect(() => {
-    const onStorage = () => setTick((t) => t + 1);
-    window.addEventListener('storage', onStorage);
-    const interval = setInterval(onStorage, 1500);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      clearInterval(interval);
-    };
-  }, []);
+  const completedSet = useCompletedLessonSet();
 
   const lessons: Lesson[] = useMemo(() => {
     if (!courseId) return [];
     const raw = mockLessons[courseId] || [];
-    const stored: string[] = (() => {
-      try {
-        const r = localStorage.getItem('signlang_lesson_progress');
-        return r ? JSON.parse(r) : [];
-      } catch {
-        return [];
-      }
-    })();
-    const completedSet = new Set(stored);
     return raw.map((l) => ({ ...l, completed: completedSet.has(l.id) }));
-  }, [courseId, currentCourse?.completedLessons]);
+  }, [courseId, completedSet]);
 
   const teacher = courseId
     ? mockTeachers[courseId] || { name: '专业教师', avatar: '', title: '', bio: '' }
@@ -228,7 +211,7 @@ export default function CourseDetail() {
   const progress = lessons.length > 0 ? (completedLessons / lessons.length) * 100 : 0;
 
   const handleStartLesson = (lessonId: string) => {
-    navigate(`/course/${courseId}/lesson/${lessonId}`);
+    navigate(`/courses/${courseId}/learn/${lessonId}`);
   };
 
   if (loading && !currentCourse) {

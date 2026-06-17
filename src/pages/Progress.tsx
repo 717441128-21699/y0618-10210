@@ -28,7 +28,8 @@ import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
-import { mockWeeklyTrend, mockCategoryRadar, mockBadges } from '@/mock/data';
+import { mockWeeklyTrend, mockCategoryRadar, mockBadges, mockLessons } from '@/mock/data';
+import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 interface AchievementBadge {
@@ -47,6 +48,13 @@ interface AchievementBadge {
 
 export default function Progress() {
   const { user, userStats, fetchUser, fetchUserStats } = useUserStore();
+  const completedSet = useCompletedLessonSet();
+
+  const totalLessonsCount = useMemo(
+    () => Object.values(mockLessons).flat().length,
+    []
+  );
+  const completedLessonsCount = completedSet.size;
 
   useEffect(() => {
     fetchUser();
@@ -180,9 +188,9 @@ export default function Progress() {
           <div className="animate-fade-in-up stagger-2">
             <StatsCard
               icon={<BookOpen className="w-6 h-6" />}
-              value={userStats?.completedLessons || 0}
-              label="完成课程数"
-              trend={{ value: '+3', direction: 'up', label: '本周' }}
+              value={completedLessonsCount}
+              label="完成课时"
+              trend={{ value: `${completedLessonsCount}/${totalLessonsCount}`, direction: 'up', label: '总课时' }}
               variant="mint"
             />
           </div>

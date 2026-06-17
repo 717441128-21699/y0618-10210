@@ -20,6 +20,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import type { Course } from '@/types';
+import { mockLessons } from '@/mock/data';
+import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 const levelOptions = [
@@ -81,6 +83,7 @@ const mockPrices: Record<string, string> = {
 export default function CourseList() {
   const navigate = useNavigate();
   const { courses, fetchCourses } = useCourseStore();
+  const completedSet = useCompletedLessonSet();
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSort, setSelectedSort] = useState('newest');
@@ -90,8 +93,18 @@ export default function CourseList() {
     fetchCourses();
   }, [fetchCourses]);
 
+  const coursesWithProgress = useMemo(
+    () =>
+      courses.map((c) => {
+        const lessons = mockLessons[c.id] || [];
+        const done = lessons.filter((l) => completedSet.has(l.id)).length;
+        return { ...c, completedLessons: done };
+      }),
+    [courses, completedSet]
+  );
+
   const filteredCourses = useMemo(() => {
-    let result = [...courses];
+    let result = [...coursesWithProgress];
 
     if (selectedLevel !== 'all') {
       result = result.filter((c) => c.level === selectedLevel);
@@ -123,7 +136,7 @@ export default function CourseList() {
     }
 
     return result;
-  }, [courses, selectedLevel, selectedCategory, selectedSort, searchKeyword]);
+  }, [coursesWithProgress, selectedLevel, selectedCategory, selectedSort, searchKeyword]);
 
   const formatDuration = (mins: number) => {
     const h = Math.floor(mins / 60);
@@ -244,7 +257,7 @@ export default function CourseList() {
                 hoverable
                 className="cursor-pointer overflow-hidden group animate-fade-in-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
-                onClick={() => navigate(`/course/${course.id}`)}
+                onClick={() => navigate(`/courses/${course.id}`)}
               >
                 <div className="relative">
                   <div

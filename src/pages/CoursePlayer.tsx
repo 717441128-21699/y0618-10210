@@ -40,6 +40,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import type { Lesson, SubmittedExercise } from '@/types';
 import { mockLessons } from '@/mock/data';
+import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 const gestureMarkers = [
@@ -142,20 +143,13 @@ export default function CoursePlayer() {
     setActiveMarkerId(activeId);
   }, [currentTime]);
 
+  const completedSet = useCompletedLessonSet();
+
   const lessons: Lesson[] = useMemo(() => {
     if (!courseId) return [];
     const raw = mockLessons[courseId] || [];
-    const stored: string[] = (() => {
-      try {
-        const r = localStorage.getItem('signlang_lesson_progress');
-        return r ? JSON.parse(r) : [];
-      } catch {
-        return [];
-      }
-    })();
-    const completedSet = new Set(stored);
     return raw.map((l) => ({ ...l, completed: completedSet.has(l.id) }));
-  }, [courseId, currentLesson?.completed]);
+  }, [courseId, completedSet]);
 
   const handleMarkComplete = async () => {
     if (!lessonId) return;
@@ -208,6 +202,8 @@ export default function CoursePlayer() {
 
   const duration = currentLesson?.duration || 600;
   const currentLessonIdx = lessons.findIndex((l) => l.id === lessonId);
+  const hasPrev = currentLessonIdx > 0;
+  const hasNext = currentLessonIdx >= 0 && currentLessonIdx < lessons.length - 1;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -228,7 +224,7 @@ export default function CoursePlayer() {
   };
 
   const jumpToLesson = (targetLessonId: string) => {
-    navigate(`/course/${courseId}/lesson/${targetLessonId}`);
+    navigate(`/courses/${courseId}/learn/${targetLessonId}`);
   };
 
   const goToPrevLesson = () => {
@@ -256,7 +252,7 @@ export default function CoursePlayer() {
             </Link>
             <ChevronRight className="w-4 h-4 text-surface-muted shrink-0" />
             <Link
-              to={`/course/${courseId}`}
+              to={`/courses/${courseId}`}
               className="hover:text-primary-600 transition-colors line-clamp-1 max-w-[200px] shrink-0"
             >
               {currentCourse?.title || '课程详情'}
@@ -352,10 +348,10 @@ export default function CoursePlayer() {
                       <button onClick={() => setIsPlaying(!isPlaying)} className="hover:text-accent-orange-300 transition-colors">
                         {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                       </button>
-                      <button onClick={goToPrevLesson} className="hover:text-accent-orange-300 transition-colors" title="上一课">
+                      <button onClick={goToPrevLesson} disabled={!hasPrev} className={cn('transition-colors', hasPrev ? 'hover:text-accent-orange-300' : 'opacity-30 cursor-not-allowed')} title="上一课">
                         <ArrowLeft className="w-5 h-5" />
                       </button>
-                      <button onClick={goToNextLesson} className="hover:text-accent-orange-300 transition-colors" title="下一课">
+                      <button onClick={goToNextLesson} disabled={!hasNext} className={cn('transition-colors', hasNext ? 'hover:text-accent-orange-300' : 'opacity-30 cursor-not-allowed')} title="下一课">
                         <ArrowRight className="w-5 h-5" />
                       </button>
                       <button onClick={() => setIsMuted(!isMuted)} className="hover:text-accent-orange-300 transition-colors">
@@ -425,7 +421,7 @@ export default function CoursePlayer() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={goToPrevLesson}>
+                <Button variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={goToPrevLesson} disabled={!hasPrev}>
                   上一课
                 </Button>
                 <Button
@@ -436,7 +432,7 @@ export default function CoursePlayer() {
                 >
                   {currentLesson?.completed ? '已完成 ✓' : '标记完成'}
                 </Button>
-                <Button variant="secondary" rightIcon={<ArrowRight className="w-4 h-4" />} onClick={goToNextLesson}>
+                <Button variant="secondary" rightIcon={<ArrowRight className="w-4 h-4" />} onClick={goToNextLesson} disabled={!hasNext}>
                   下一课
                 </Button>
               </div>
