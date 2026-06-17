@@ -189,6 +189,19 @@ export default function CoursePlayer() {
     );
   }
 
+  const lessonInThisCourse = lessons.some((l) => l.id === lessonId);
+  if (!currentLesson || !lessonInThisCourse) {
+    return (
+      <div className="min-h-full flex items-center justify-center py-24">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-text-primary mb-2">课时不存在</h3>
+          <p className="text-text-tertiary mb-6">找不到该课时，或该课时不属于此课程</p>
+          <Button onClick={() => navigate(`/courses/${courseId}`)}>返回课程详情</Button>
+        </div>
+      </div>
+    );
+  }
+
   const handleMarkComplete = async () => {
     if (!lessonId) return;
     await markLessonComplete(lessonId, {

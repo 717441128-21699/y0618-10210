@@ -72,7 +72,7 @@ export const useCourseStore = create<CourseStore>()(
         if (res.code === 0) {
           set((state) => {
             state.currentLesson = res.data;
-            state.exercises = res.data.exercises;
+            state.exercises = res.data?.exercises || [];
           });
         }
       } finally {

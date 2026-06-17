@@ -322,15 +322,16 @@ export const api = {
     return ok(result);
   },
 
-  async getCourse(id: string): Promise<ApiResponse<Course>> {
+  async getCourse(id: string): Promise<ApiResponse<Course | null>> {
     const completedSet = getCompletedLessons();
-    const course = mockCourses.find((c) => c.id === id) || mockCourses[0];
+    const course = mockCourses.find((c) => c.id === id);
+    if (!course) return ok(null);
     const lessons = mockLessons[id] || [];
     const done = lessons.filter((l) => completedSet.has(l.id)).length;
     return ok({ ...course, completedLessons: done });
   },
 
-  async getLesson(id: string): Promise<ApiResponse<Lesson>> {
+  async getLesson(id: string): Promise<ApiResponse<Lesson | null>> {
     for (const lessons of Object.values(mockLessons)) {
       const lesson = lessons.find((l) => l.id === id);
       if (lesson) {
@@ -338,7 +339,7 @@ export const api = {
         return ok({ ...lesson, completed: completedSet.has(lesson.id) });
       }
     }
-    return ok({ ...mockLessons['c001'][0] });
+    return ok(null);
   },
 
   async submitExercise(submission: ExerciseSubmission): Promise<ApiResponse<ExerciseResult>> {
@@ -559,13 +560,12 @@ export const api = {
     const orders = getTranslationOrders();
     const idx = orders.findIndex((o) => o.id === orderId);
     if (idx !== -1) {
-      const volunteer = mockVolunteers[Math.floor(Math.random() * mockVolunteers.length)];
       orders[idx] = {
         ...orders[idx],
         status: 'accepted',
-        translatorId: volunteer.id,
-        translatorName: volunteer.name,
-        translatorAvatar: volunteer.avatar,
+        translatorId: mockUser.id,
+        translatorName: mockUser.name,
+        translatorAvatar: mockUser.avatar,
       };
       saveTranslationOrders(orders);
       return ok({ ...orders[idx] });
