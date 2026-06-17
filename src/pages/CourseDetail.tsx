@@ -166,6 +166,7 @@ export default function CourseDetail() {
   const { courseId } = useParams<{ courseId: string }>();
   const { currentCourse, loading, fetchCourse } = useCourseStore();
   const [activeTab, setActiveTab] = useState('outline');
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (courseId) {
@@ -173,10 +174,30 @@ export default function CourseDetail() {
     }
   }, [courseId, fetchCourse]);
 
+  useEffect(() => {
+    const onStorage = () => setTick((t) => t + 1);
+    window.addEventListener('storage', onStorage);
+    const interval = setInterval(onStorage, 1500);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      clearInterval(interval);
+    };
+  }, []);
+
   const lessons: Lesson[] = useMemo(() => {
     if (!courseId) return [];
-    return mockLessons[courseId] || [];
-  }, [courseId]);
+    const raw = mockLessons[courseId] || [];
+    const stored: string[] = (() => {
+      try {
+        const r = localStorage.getItem('signlang_lesson_progress');
+        return r ? JSON.parse(r) : [];
+      } catch {
+        return [];
+      }
+    })();
+    const completedSet = new Set(stored);
+    return raw.map((l) => ({ ...l, completed: completedSet.has(l.id) }));
+  }, [courseId, currentCourse?.completedLessons]);
 
   const teacher = courseId
     ? mockTeachers[courseId] || { name: '专业教师', avatar: '', title: '', bio: '' }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Course, Lesson, Exercise, ExerciseSubmission, ExerciseResult } from '@/types';
+import type { Course, Lesson, Exercise, ExerciseSubmission, ExerciseResult, SubmittedExercise } from '@/types';
 import { api } from '@/services/api';
 
 interface CourseStore {
@@ -8,10 +8,12 @@ interface CourseStore {
   currentCourse: Course | null;
   currentLesson: Lesson | null;
   exercises: Exercise[];
+  currentSubmittedExercise: SubmittedExercise | null;
   loading: boolean;
   fetchCourses: (level?: string, category?: string) => Promise<void>;
   fetchCourse: (id: string) => Promise<void>;
   fetchLesson: (id: string) => Promise<void>;
+  fetchSubmittedExercise: (lessonId: string) => Promise<SubmittedExercise | null>;
   submitExercise: (submission: ExerciseSubmission) => Promise<ExerciseResult | null>;
   markLessonComplete: (lessonId: string) => Promise<void>;
 }
@@ -22,6 +24,7 @@ export const useCourseStore = create<CourseStore>()(
     currentCourse: null,
     currentLesson: null,
     exercises: [],
+    currentSubmittedExercise: null,
     loading: false,
 
     fetchCourses: async (level, category) => {
@@ -79,6 +82,21 @@ export const useCourseStore = create<CourseStore>()(
       }
     },
 
+    fetchSubmittedExercise: async (lessonId) => {
+      try {
+        const res = await api.getSubmittedExercise(lessonId);
+        if (res.code === 0) {
+          set((state) => {
+            state.currentSubmittedExercise = res.data;
+          });
+          return res.data;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    },
+
     submitExercise: async (submission) => {
       set((state) => {
         state.loading = true;
@@ -86,6 +104,12 @@ export const useCourseStore = create<CourseStore>()(
       try {
         const res = await api.submitExercise(submission);
         if (res.code === 0) {
+          const subRes = await api.getSubmittedExercise(submission.exerciseId);
+          if (subRes.code === 0) {
+            set((state) => {
+              state.currentSubmittedExercise = subRes.data;
+            });
+          }
           return res.data;
         }
         return null;

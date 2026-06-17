@@ -8,6 +8,7 @@ interface TranslateStore {
   currentOrder: TranslationOrder | null;
   loading: boolean;
   fetchOrders: (status?: string, role?: 'client' | 'translator') => Promise<void>;
+  fetchOrder: (orderId: string) => Promise<TranslationOrder | null>;
   createOrder: (data: NewOrder) => Promise<TranslationOrder | null>;
   acceptOrder: (orderId: string) => Promise<void>;
   completeOrder: (orderId: string, rating: number, review: string) => Promise<void>;
@@ -30,6 +31,26 @@ export const useTranslateStore = create<TranslateStore>()(
             state.orders = res.data;
           });
         }
+      } finally {
+        set((state) => {
+          state.loading = false;
+        });
+      }
+    },
+
+    fetchOrder: async (orderId) => {
+      set((state) => {
+        state.loading = true;
+      });
+      try {
+        const res = await api.getOrder(orderId);
+        if (res.code === 0 && res.data) {
+          set((state) => {
+            state.currentOrder = res.data;
+          });
+          return res.data;
+        }
+        return null;
       } finally {
         set((state) => {
           state.loading = false;

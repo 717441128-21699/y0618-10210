@@ -87,6 +87,8 @@ const sceneMap: Record<string, SceneInfo> = {
   medical: { name: '医疗', icon: HeartPulse, gradient: 'from-red-400 to-rose-500' },
   court: { name: '法律', icon: Scale, gradient: 'from-amber-400 to-orange-500' },
   education: { name: '教育', icon: GraduationCap, gradient: 'from-blue-400 to-indigo-500' },
+  meeting: { name: '会议', icon: Users, gradient: 'from-emerald-400 to-teal-500' },
+  interview: { name: '面试', icon: Briefcase, gradient: 'from-violet-400 to-purple-500' },
   business: { name: '商务', icon: Briefcase, gradient: 'from-emerald-400 to-teal-500' },
   other: { name: '其他', icon: Building2, gradient: 'from-slate-400 to-slate-600' },
 };
@@ -103,7 +105,7 @@ const mockMessages: ChatMessage[] = [
 export default function TranslateDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { currentOrder, loading, fetchOrders, completeOrder, acceptOrder } = useTranslateStore();
+  const { currentOrder, loading, fetchOrder, completeOrder, acceptOrder } = useTranslateStore();
   const { user, fetchUser } = useUserStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>(mockMessages);
@@ -115,89 +117,58 @@ export default function TranslateDetail() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchOrders();
+    if (orderId) fetchOrder(orderId);
     fetchUser();
-  }, [fetchOrders, fetchUser]);
+  }, [orderId, fetchOrder, fetchUser]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const orderData = useMemo(() => {
-    if (currentOrder && currentOrder.id === orderId) {
-      const title = currentOrder.title || '';
-      let scene = 'other';
-      if (/医院|医|就诊|看病|体检|检查|产检/.test(title)) scene = 'medical';
-      else if (/法院|法庭|法律|开庭|律师|诉讼/.test(title)) scene = 'court';
-      else if (/学校|老师|家长会|教育|培训|上课/.test(title)) scene = 'education';
-      else if (/商务|会议|面试|公司|企业|洽谈/.test(title)) scene = 'business';
-
-      const deadline = new Date(currentOrder.deadline);
-      return {
-        id: currentOrder.id,
-        orderNo: `ORD-${currentOrder.id.toUpperCase()}`,
-        scene,
-        title,
-        date: deadline.toLocaleDateString('zh-CN'),
-        time: '09:00 - 11:30',
-        location: currentOrder.type === 'video' ? 'online' : 'offline',
-        address: currentOrder.type === 'video' ? '腾讯会议 ID: 856-234-128' : '北京市协和医院东院区心内科门诊',
-        urgency: currentOrder.urgency as keyof typeof urgencyMap,
-        status: currentOrder.status as keyof typeof statusConfig,
-        budget: currentOrder.budget,
-        description: currentOrder.description,
-        createdAt: new Date(currentOrder.createdAt).toLocaleString('zh-CN'),
-        translator: currentOrder.translatorName
-          ? {
-              id: currentOrder.translatorId || 't001',
-              name: currentOrder.translatorName,
-              avatar:
-                currentOrder.translatorAvatar ||
-                'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=face',
-              rating: 4.9,
-              completedOrders: 128,
-              certifications: ['国家级手语翻译证书', '医疗翻译专项认证'],
-              intro: '5年专业手语翻译经验，擅长医疗场景翻译，累计服务128次，好评率99.2%。',
-              phone: '138****6789',
-            }
-          : null,
-        review: currentOrder.review
-          ? {
-              rating: currentOrder.rating || 5,
-              content: currentOrder.review,
-            }
-          : null,
-      };
-    }
+    const raw = currentOrder;
+    const scene = raw?.scene || 'other';
+    const date = raw?.date ? raw.date : raw?.deadline ? new Date(raw.deadline).toISOString().split('T')[0] : '-';
+    const time = raw?.startTime && raw?.endTime ? `${raw.startTime} - ${raw.endTime}` : '-';
+    const location: 'online' | 'offline' =
+      raw?.locationType || (raw?.type === 'video' ? 'online' : 'offline');
+    const address = raw?.address || (location === 'online' ? '线上会议' : '线下服务');
 
     return {
-      id: orderId || 't001',
-      orderNo: `ORD-${(orderId || 't001').toUpperCase()}`,
-      scene: 'medical',
-      title: '三甲医院心内科就诊陪同翻译',
-      date: '2026年6月20日',
-      time: '09:00 - 11:30',
-      location: 'offline',
-      address: '北京市协和医院东院区心内科门诊3诊室',
-      urgency: 'urgent',
-      status: 'accepted',
-      budget: 400,
-      description:
-        '需要陪同完成心内科就诊，包括挂号、问诊、心电图检查、抽血化验、取药等环节。患者有5年高血压史，近期频繁出现头晕症状，需要咨询医生是否需要调整用药方案。要求译员熟悉心内科相关医学术语，沟通耐心细致。',
-      createdAt: '2026-06-17 14:22:08',
-      translator: {
-        id: 't001',
-        name: '周慧敏',
-        avatar:
-          'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=face',
-        rating: 4.9,
-        completedOrders: 128,
-        certifications: ['国家级手语翻译证书', '医疗翻译专项认证', '心理援助资格证'],
-        intro:
-          '5年专业手语翻译经验，擅长医疗和法律场景翻译，累计服务128次，好评率99.2%。性格开朗有耐心，善于理解听障人士的表达习惯。',
-        phone: '138****6789',
-      },
-      review: null,
+      id: raw?.id || orderId || 'unknown',
+      orderNo: `ORD-${(raw?.id || orderId || 'ORD001').toUpperCase()}`,
+      scene,
+      title: raw?.title || '翻译需求',
+      date,
+      time,
+      location,
+      address,
+      meetingLink: raw?.meetingLink,
+      urgency: (raw?.urgency as keyof typeof urgencyMap) || 'normal',
+      status: (raw?.status as keyof typeof statusConfig) || 'pending',
+      budget: raw?.budget || 0,
+      description: raw?.description || '（暂无描述）',
+      createdAt: raw?.createdAt ? new Date(raw.createdAt).toLocaleString('zh-CN') : '-',
+      translator: raw?.translatorName
+        ? {
+            id: raw.translatorId || 't001',
+            name: raw.translatorName,
+            avatar:
+              raw.translatorAvatar ||
+              'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=face',
+            rating: 4.9,
+            completedOrders: 128,
+            certifications: ['国家级手语翻译证书', '专项场景翻译认证'],
+            intro: '资深手语翻译志愿者，累计服务百余次，好评率99%+，善于理解听障人士表达习惯。',
+            phone: '138****6789',
+          }
+        : null,
+      review: raw?.review
+        ? {
+            rating: raw.rating || 5,
+            content: raw.review,
+          }
+        : null,
     };
   }, [currentOrder, orderId]);
 
@@ -240,6 +211,25 @@ export default function TranslateDetail() {
     }
     setTimeout(() => setIsSubmittingReview(false), 800);
   };
+
+  if (loading && !currentOrder) {
+    return (
+      <div className="min-h-full flex items-center justify-center py-24">
+        <div className="text-text-tertiary">加载中...</div>
+      </div>
+    );
+  }
+
+  if (!currentOrder) {
+    return (
+      <div className="min-h-full flex items-center justify-center py-24">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-text-primary mb-2">订单不存在</h3>
+          <Button onClick={() => navigate('/translate')}>返回订单列表</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full animate-fade-in">

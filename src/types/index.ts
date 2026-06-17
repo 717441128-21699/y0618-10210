@@ -153,6 +153,20 @@ export interface NewComment {
   replyTo?: string;
 }
 
+export interface SubmittedExercise {
+  id: string;
+  lessonId: string;
+  videoUrl?: string;
+  submittedAt: string;
+  status: 'pending' | 'approved' | 'needs_revision';
+  score?: number;
+  feedback?: string;
+  highlights?: string[];
+  improvements?: string[];
+  gradedBy?: string;
+  gradedAt?: string;
+}
+
 export interface TranslationOrder {
   id: string;
   title: string;
@@ -173,6 +187,13 @@ export interface TranslationOrder {
   rating?: number;
   review?: string;
   createdAt: string;
+  scene: 'medical' | 'court' | 'education' | 'business' | 'meeting' | 'interview' | 'other';
+  date: string;
+  startTime: string;
+  endTime: string;
+  locationType: 'online' | 'offline';
+  address: string;
+  meetingLink?: string;
 }
 
 export interface NewOrder {
@@ -184,6 +205,13 @@ export interface NewOrder {
   urgency: 'normal' | 'urgent' | 'vip';
   budget: number;
   deadline: string;
+  scene: 'medical' | 'court' | 'education' | 'business' | 'meeting' | 'interview' | 'other';
+  date: string;
+  startTime: string;
+  endTime: string;
+  locationType: 'online' | 'offline';
+  address: string;
+  meetingLink?: string;
 }
 
 export interface WeeklyTrendPoint {

@@ -198,9 +198,9 @@ export default function TranslateCreate() {
   };
 
   const handleSubmit = async () => {
-    const sceneInfo = scenes.find((s) => s.id === selectedScene);
+    const scene = selectedScene || 'other';
     await createOrder({
-      title: sceneTitleMap[selectedScene || 'other'],
+      title: sceneTitleMap[scene],
       description,
       type: locationType === 'online' ? 'video' : 'live',
       source: '中文',
@@ -208,6 +208,13 @@ export default function TranslateCreate() {
       urgency,
       budget,
       deadline: new Date(`${date}T${endTime}`).toISOString(),
+      scene,
+      date,
+      startTime,
+      endTime,
+      locationType,
+      address: locationType === 'offline' ? address : meetingLink,
+      meetingLink: locationType === 'online' ? meetingLink : undefined,
     });
     setTimeout(() => navigate('/translate'), 800);
   };

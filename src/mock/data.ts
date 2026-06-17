@@ -486,11 +486,21 @@ const translators = [
   { id: 'trans003', name: '赵晓燕', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&crop=face' },
 ];
 
+const mockOrderSceneDetails = [
+  { scene: 'medical' as const, date: '2026-06-18', startTime: '09:00', endTime: '11:30', locationType: 'offline' as const, address: '北京市协和医院东院区心内科门诊' },
+  { scene: 'court' as const, date: '2026-06-13', startTime: '14:00', endTime: '17:00', locationType: 'offline' as const, address: '朝阳区人民法院第三法庭' },
+  { scene: 'education' as const, date: '2026-06-16', startTime: '19:00', endTime: '21:00', locationType: 'offline' as const, address: '海淀区实验小学阶梯教室' },
+  { scene: 'business' as const, date: '2026-06-11', startTime: '10:00', endTime: '12:00', locationType: 'online' as const, address: '腾讯会议 ID: 856-234-128', meetingLink: 'https://meeting.tencent.com/dm/856234128' },
+  { scene: 'medical' as const, date: '2026-06-18', startTime: '08:30', endTime: '10:30', locationType: 'offline' as const, address: '北京妇产医院产科门诊' },
+  { scene: 'other' as const, date: '2026-06-15', startTime: '09:00', endTime: '16:00', locationType: 'offline' as const, address: '西城区建设银行分行营业厅' },
+];
+
 export const mockOrders: TranslationOrder[] = orderData.map((o, i) => {
   const hasTranslator = o.status === 'accepted' || o.status === 'completed';
   const translator = hasTranslator ? translators[i % translators.length] : undefined;
   const createDate = new Date(Date.now() - (o.days + 2) * 86400000);
   const deadline = new Date(Date.now() + o.days * 86400000);
+  const detail = mockOrderSceneDetails[i % mockOrderSceneDetails.length];
   return {
     id: `t${String(i + 1).padStart(3, '0')}`,
     title: o.title,
@@ -511,6 +521,13 @@ export const mockOrders: TranslationOrder[] = orderData.map((o, i) => {
     rating: o.rating,
     review: o.review,
     createdAt: createDate.toISOString(),
+    scene: detail.scene,
+    date: detail.date,
+    startTime: detail.startTime,
+    endTime: detail.endTime,
+    locationType: detail.locationType,
+    address: detail.address,
+    meetingLink: detail.meetingLink,
   };
 });
 

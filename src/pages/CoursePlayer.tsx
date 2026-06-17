@@ -38,7 +38,7 @@ import { Button } from '@/components/ui/Button';
 import { TagChip } from '@/components/ui/TagChip';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
-import type { Lesson } from '@/types';
+import type { Lesson, SubmittedExercise } from '@/types';
 import { mockLessons } from '@/mock/data';
 import { cn } from '@/lib/utils';
 
@@ -92,7 +92,7 @@ const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
 export default function CoursePlayer() {
   const navigate = useNavigate();
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
-  const { currentCourse, currentLesson, fetchCourse, fetchLesson } = useCourseStore();
+  const { currentCourse, currentLesson, fetchCourse, fetchLesson, markLessonComplete, submitExercise, currentSubmittedExercise, fetchSubmittedExercise, loading } = useCourseStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -102,14 +102,19 @@ export default function CoursePlayer() {
   const [isPracticeExpanded, setIsPracticeExpanded] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [activeMarkerId, setActiveMarkerId] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   useEffect(() => {
     if (courseId) fetchCourse(courseId);
   }, [courseId, fetchCourse]);
 
   useEffect(() => {
-    if (lessonId) fetchLesson(lessonId);
-  }, [lessonId, fetchLesson]);
+    if (lessonId) {
+      fetchLesson(lessonId);
+      fetchSubmittedExercise(lessonId);
+    }
+  }, [lessonId, fetchLesson, fetchSubmittedExercise]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -139,8 +144,63 @@ export default function CoursePlayer() {
 
   const lessons: Lesson[] = useMemo(() => {
     if (!courseId) return [];
-    return mockLessons[courseId] || [];
-  }, [courseId]);
+    const raw = mockLessons[courseId] || [];
+    const stored: string[] = (() => {
+      try {
+        const r = localStorage.getItem('signlang_lesson_progress');
+        return r ? JSON.parse(r) : [];
+      } catch {
+        return [];
+      }
+    })();
+    const completedSet = new Set(stored);
+    return raw.map((l) => ({ ...l, completed: completedSet.has(l.id) }));
+  }, [courseId, currentLesson?.completed]);
+
+  const handleMarkComplete = async () => {
+    if (!lessonId) return;
+    await markLessonComplete(lessonId);
+  };
+
+  const handleSubmitExercise = async () => {
+    if (!lessonId || isSubmitting) return;
+    if (!isRecording) {
+      alert('请先录制练习视频后再提交');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await submitExercise({
+        exerciseId: lessonId,
+        answer: 'recorded_video',
+      });
+      if (res) {
+        setSubmitSuccess(true);
+        setIsRecording(false);
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitted: SubmittedExercise | null = currentSubmittedExercise;
+
+  const feedbackList = submitted
+    ? [
+        {
+          id: submitted.id,
+          status: submitted.status === 'approved' ? ('pass' as const) : ('improve' as const),
+          title: `${currentLesson?.title || '本次练习'} · 手势练习`,
+          comment: submitted.feedback || '',
+          score: submitted.score || 0,
+          highlights: submitted.highlights || [],
+          improvements: submitted.improvements || [],
+          gradedBy: submitted.gradedBy,
+          gradedAt: submitted.gradedAt,
+        },
+      ]
+    : [];
 
   const teacher = courseId
     ? mockTeachers[courseId] || { name: '专业教师', avatar: '', title: '' }
@@ -368,7 +428,14 @@ export default function CoursePlayer() {
                 <Button variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={goToPrevLesson}>
                   上一课
                 </Button>
-                <Button leftIcon={<CheckCircle2 className="w-4 h-4" />}>标记完成</Button>
+                <Button
+                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  onClick={handleMarkComplete}
+                  disabled={currentLesson?.completed}
+                  variant={currentLesson?.completed ? 'secondary' : 'primary'}
+                >
+                  {currentLesson?.completed ? '已完成 ✓' : '标记完成'}
+                </Button>
                 <Button variant="secondary" rightIcon={<ArrowRight className="w-4 h-4" />} onClick={goToNextLesson}>
                   下一课
                 </Button>
@@ -558,9 +625,19 @@ export default function CoursePlayer() {
                     >
                       {isRecording ? '停止录制' : '开始录制'}
                     </Button>
-                    <Button size="lg" variant="secondary" leftIcon={<Send className="w-5 h-5" />}>
-                      提交作业
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      leftIcon={<Send className="w-5 h-5" />}
+                      onClick={handleSubmitExercise}
+                      loading={isSubmitting}
+                      disabled={submitted?.status === 'approved'}
+                    >
+                      {submitSuccess ? '提交成功 ✓' : submitted?.status === 'approved' ? '已通过 ✓' : '提交作业'}
                     </Button>
+                    {submitSuccess && (
+                      <Badge variant="success" className="animate-pulse">批改完成！下方查看反馈</Badge>
+                    )}
                   </div>
                 </div>
               )}
@@ -573,12 +650,35 @@ export default function CoursePlayer() {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-text-primary">教师反馈</h2>
-                  <p className="text-sm text-text-tertiary">上次作业批改结果与建议</p>
+                  <p className="text-sm text-text-tertiary">
+                    {submitted
+                      ? submitted.gradedBy
+                        ? `${submitted.gradedBy} · 最近一次批改结果`
+                        : '最近一次批改结果'
+                      : '尚未提交作业，完成录制后点击提交即可获得反馈'}
+                  </p>
                 </div>
-                <Badge variant="success">已批改</Badge>
+                {submitted ? (
+                  <Badge variant={submitted.status === 'approved' ? 'success' : 'warning'}>
+                    {submitted.status === 'approved' ? '已通过' : '待改进'}
+                  </Badge>
+                ) : (
+                  <Badge variant="default">待提交</Badge>
+                )}
               </div>
               <div className="p-5 space-y-4">
-                {teacherFeedbacks.map((feedback) => (
+                {feedbackList.length === 0 && !isSubmitting && (
+                  <div className="py-12 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-bg flex items-center justify-center">
+                      <AlertCircle className="w-8 h-8 text-surface-muted" />
+                    </div>
+                    <h3 className="font-bold text-text-primary mb-2">暂无批改记录</h3>
+                    <p className="text-sm text-text-tertiary max-w-sm mx-auto">
+                      在上方练习录制区完成动作录制后，点击「提交作业」即可获得系统AI即时反馈与评分。
+                    </p>
+                  </div>
+                )}
+                {feedbackList.map((feedback) => (
                   <CardBody
                     key={feedback.id}
                     className={cn(

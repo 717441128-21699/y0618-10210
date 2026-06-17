@@ -14,14 +14,15 @@ import {
   Scale,
   HeartPulse,
   Layers,
+  Users,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/Tabs';
-import { TagChip } from '@/components/ui/TagChip';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTranslateStore } from '@/stores/translateStore';
 import { cn } from '@/lib/utils';
+import type { TranslationOrder } from '@/types';
 
 const statusTabs = [
   { value: 'all', label: '全部' },
@@ -35,54 +36,19 @@ const sceneTags = [
   { id: 'medical', name: '医疗', icon: HeartPulse },
   { id: 'court', name: '开庭', icon: Scale },
   { id: 'education', name: '教育', icon: GraduationCap },
+  { id: 'meeting', name: '会议', icon: Users },
   { id: 'business', name: '商务', icon: Briefcase },
   { id: 'other', name: '其他', icon: Building2 },
 ];
 
-interface SceneInfo {
-  name: string;
-  icon: typeof HeartPulse;
-  bgColor: string;
-  textColor: string;
-  gradient: string;
-}
-
-const sceneMap: Record<string, SceneInfo> = {
-  medical: {
-    name: '医疗',
-    icon: HeartPulse,
-    bgColor: 'bg-red-50',
-    textColor: 'text-red-500',
-    gradient: 'from-red-400 to-rose-500',
-  },
-  court: {
-    name: '法律',
-    icon: Scale,
-    bgColor: 'bg-amber-50',
-    textColor: 'text-amber-600',
-    gradient: 'from-amber-400 to-orange-500',
-  },
-  education: {
-    name: '教育',
-    icon: GraduationCap,
-    bgColor: 'bg-blue-50',
-    textColor: 'text-blue-500',
-    gradient: 'from-blue-400 to-indigo-500',
-  },
-  business: {
-    name: '商务',
-    icon: Briefcase,
-    bgColor: 'bg-emerald-50',
-    textColor: 'text-emerald-500',
-    gradient: 'from-emerald-400 to-teal-500',
-  },
-  other: {
-    name: '其他',
-    icon: Building2,
-    bgColor: 'bg-purple-50',
-    textColor: 'text-purple-500',
-    gradient: 'from-purple-400 to-violet-500',
-  },
+const sceneMap: Record<string, { name: string; icon: typeof HeartPulse; gradient: string }> = {
+  medical: { name: '医疗', icon: HeartPulse, gradient: 'from-red-400 to-rose-500' },
+  court: { name: '法律', icon: Scale, gradient: 'from-amber-400 to-orange-500' },
+  education: { name: '教育', icon: GraduationCap, gradient: 'from-blue-400 to-indigo-500' },
+  meeting: { name: '会议', icon: Users, gradient: 'from-emerald-400 to-teal-500' },
+  interview: { name: '面试', icon: Briefcase, gradient: 'from-violet-400 to-purple-500' },
+  business: { name: '商务', icon: Briefcase, gradient: 'from-emerald-400 to-teal-500' },
+  other: { name: '其他', icon: Building2, gradient: 'from-slate-400 to-slate-600' },
 };
 
 const urgencyMap = {
@@ -98,100 +64,7 @@ const statusMap = {
   cancelled: { label: '已取消', variant: 'warning' as const, dot: true },
 };
 
-interface MockOrder {
-  id: string;
-  scene: keyof typeof sceneMap;
-  title: string;
-  date: string;
-  time: string;
-  location: 'online' | 'offline';
-  address: string;
-  urgency: keyof typeof urgencyMap;
-  status: keyof typeof statusMap;
-  budget: number;
-  description: string;
-}
-
-const mockOrders: MockOrder[] = [
-  {
-    id: 't001',
-    scene: 'medical',
-    title: '三甲医院心内科就诊陪同翻译',
-    date: '2026-06-20',
-    time: '09:00 - 11:30',
-    location: 'offline',
-    address: '北京市协和医院东院区',
-    urgency: 'urgent',
-    status: 'pending',
-    budget: 400,
-    description: '需要陪同完成心内科就诊，包括挂号、问诊、检查、取药等环节。患者有高血压史，需要熟悉医疗相关手语。',
-  },
-  {
-    id: 't002',
-    scene: 'court',
-    title: '民事纠纷庭审手语翻译',
-    date: '2026-06-22',
-    time: '14:00 - 17:00',
-    location: 'offline',
-    address: '朝阳区人民法院第三法庭',
-    urgency: 'vip',
-    status: 'accepted',
-    budget: 1200,
-    description: '合同纠纷案件出庭翻译，需要熟悉法律术语和庭审流程，要求持有手语翻译资格证书。',
-  },
-  {
-    id: 't003',
-    scene: 'education',
-    title: '小学家长会陪同翻译',
-    date: '2026-06-21',
-    time: '19:00 - 21:00',
-    location: 'offline',
-    address: '海淀区实验小学阶梯教室',
-    urgency: 'normal',
-    status: 'pending',
-    budget: 260,
-    description: '孩子的学期家长会，需要翻译老师的发言内容，以及帮助我与老师进行沟通交流。',
-  },
-  {
-    id: 't004',
-    scene: 'business',
-    title: '商务视频会议实时翻译',
-    date: '2026-06-19',
-    time: '10:00 - 12:00',
-    location: 'online',
-    address: '腾讯会议 ID: 856-234-128',
-    urgency: 'urgent',
-    status: 'completed',
-    budget: 600,
-    description: '与供应商的季度业务复盘会议，需要实时进行口语和手语双向翻译。',
-  },
-  {
-    id: 't005',
-    scene: 'medical',
-    title: '产科产检陪同翻译',
-    date: '2026-06-25',
-    time: '08:30 - 10:30',
-    location: 'offline',
-    address: '北京妇产医院',
-    urgency: 'normal',
-    status: 'pending',
-    budget: 300,
-    description: '孕24周常规产检陪同，需要翻译医生的各项检查建议和注意事项。',
-  },
-  {
-    id: 't006',
-    scene: 'other',
-    title: '企业入职培训翻译协助',
-    date: '2026-06-23',
-    time: '09:00 - 18:00',
-    location: 'offline',
-    address: '西城区金融街T3写字楼',
-    urgency: 'normal',
-    status: 'pending',
-    budget: 1500,
-    description: '新员工为期一天的入职培训，需要全程同步翻译培训内容，并协助与同事沟通。',
-  },
-];
+type OrderView = TranslationOrder & { time: string; location: 'online' | 'offline' };
 
 export default function TranslateList() {
   const navigate = useNavigate();
@@ -206,25 +79,19 @@ export default function TranslateList() {
     fetchOrders();
   }, [fetchOrders]);
 
-  const displayOrders = useMemo(() => {
-    let result: (MockOrder | any)[] = orders.length > 0 ? orders : mockOrders;
+  const displayOrders = useMemo<OrderView[]>(() => {
+    let result: OrderView[] = orders.map((o) => ({
+      ...o,
+      time: `${o.startTime || ''} - ${o.endTime || ''}`.trim(),
+      location: o.locationType || (o.type === 'video' ? 'online' : 'offline'),
+    }));
 
     if (activeStatus !== 'all') {
       result = result.filter((o) => o.status === activeStatus);
     }
 
     if (activeScene !== 'all') {
-      result = result.filter((o) => {
-        const title = o.title || '';
-        const sceneKeywords: Record<string, string[]> = {
-          medical: ['医院', '医', '就诊', '看病', '体检', '检查', '产检'],
-          court: ['法院', '法庭', '法律', '开庭', '律师', '诉讼'],
-          education: ['学校', '老师', '家长会', '教育', '培训', '上课'],
-          business: ['商务', '会议', '面试', '公司', '企业', '洽谈'],
-        };
-        const keywords = sceneKeywords[activeScene] || [];
-        return keywords.some((k) => title.includes(k));
-      });
+      result = result.filter((o) => o.scene === activeScene);
     }
 
     if (searchKeyword.trim()) {
@@ -237,28 +104,7 @@ export default function TranslateList() {
       );
     }
 
-    return result.map((o, idx) => {
-      const title = o.title || o.description?.slice(0, 20) || '翻译需求';
-      let scene: keyof typeof sceneMap = 'other';
-      if (/医院|医|就诊|看病|体检|检查|产检/.test(title)) scene = 'medical';
-      else if (/法院|法庭|法律|开庭|律师|诉讼/.test(title)) scene = 'court';
-      else if (/学校|老师|家长会|教育|培训|上课/.test(title)) scene = 'education';
-      else if (/商务|会议|面试|公司|企业|洽谈/.test(title)) scene = 'business';
-
-      return {
-        id: o.id,
-        scene,
-        title,
-        date: o.deadline ? new Date(o.deadline).toLocaleDateString('zh-CN') : mockOrders[idx % mockOrders.length].date,
-        time: mockOrders[idx % mockOrders.length].time,
-        location: idx % 2 === 0 ? 'offline' : 'online',
-        address: o.title?.includes('视频') ? '腾讯会议 ID: 856-234-128' : mockOrders[idx % mockOrders.length].address,
-        urgency: (o.urgency as keyof typeof urgencyMap) || 'normal',
-        status: (o.status as keyof typeof statusMap) || 'pending',
-        budget: o.budget || 300,
-        description: o.description || mockOrders[idx % mockOrders.length].description,
-      };
-    });
+    return result;
   }, [orders, activeStatus, activeScene, searchKeyword]);
 
   const handleAcceptOrder = async (orderId: string) => {
