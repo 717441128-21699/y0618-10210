@@ -24,6 +24,26 @@ import { useTranslateStore } from '@/stores/translateStore';
 import { cn } from '@/lib/utils';
 import type { TranslationOrder } from '@/types';
 
+const sceneGradient: Record<string, string> = {
+  medical: 'from-red-400 to-rose-500',
+  court: 'from-amber-400 to-orange-500',
+  education: 'from-blue-400 to-indigo-500',
+  meeting: 'from-emerald-400 to-teal-500',
+  interview: 'from-violet-400 to-purple-500',
+  business: 'from-emerald-400 to-teal-500',
+  other: 'from-slate-400 to-slate-600',
+};
+
+const sceneNameMap: Record<string, string> = {
+  medical: '医疗',
+  court: '法律',
+  education: '教育',
+  meeting: '会议',
+  interview: '面试',
+  business: '商务',
+  other: '其他',
+};
+
 const statusTabs = [
   { value: 'all', label: '全部' },
   { value: 'pending', label: '待接单' },
@@ -74,7 +94,7 @@ export default function TranslateList() {
   const [activeStatus, setActiveStatus] = useState('all');
   const [activeScene, setActiveScene] = useState('all');
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [isVolunteer, setIsVolunteer] = useState(true);
+  const [roleFilter, setRoleFilter] = useState<'all' | 'client' | 'translator'>('all');
 
   useEffect(() => {
     fetchOrders();
@@ -86,6 +106,12 @@ export default function TranslateList() {
       time: `${o.startTime || ''} - ${o.endTime || ''}`.trim(),
       location: o.locationType || (o.type === 'video' ? 'online' : 'offline'),
     }));
+
+    if (roleFilter === 'client') {
+      result = result.filter((o) => o.clientId === 'u001');
+    } else if (roleFilter === 'translator') {
+      result = result.filter((o) => o.translatorId === 'u001');
+    }
 
     if (activeStatus !== 'all') {
       result = result.filter((o) => o.status === activeStatus);
@@ -106,26 +132,39 @@ export default function TranslateList() {
     }
 
     return result;
-  }, [orders, activeStatus, activeScene, searchKeyword]);
+  }, [orders, roleFilter, activeStatus, activeScene, searchKeyword]);
 
   const handleAcceptOrder = async (orderId: string) => {
     await acceptOrder(orderId);
   };
 
+  const roleTabs = [
+    { value: 'all' as const, label: '全部订单' },
+    { value: 'client' as const, label: '我发布的需求' },
+    { value: 'translator' as const, label: '我接的服务' },
+  ];
+
   return (
     <div className="min-h-full animate-fade-in">
       <div className="mb-6 flex flex-col lg:flex-row lg:items-center gap-4">
-        <div className="flex items-center gap-4 flex-1">
+        <div className="flex items-center gap-4 flex-1 flex-wrap">
           <h1 className="text-2xl font-bold text-text-primary">翻译预约</h1>
-          <Badge variant={isVolunteer ? 'success' : 'info'} dot>
-            {isVolunteer ? '志愿者模式' : '用户模式'}
-          </Badge>
-          <button
-            onClick={() => setIsVolunteer(!isVolunteer)}
-            className="text-xs text-primary-600 font-medium hover:text-primary-700 underline underline-offset-2"
-          >
-            切换角色
-          </button>
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-bg border border-surface-border/60">
+            {roleTabs.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setRoleFilter(tab.value)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200',
+                  roleFilter === tab.value
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-text-tertiary hover:text-text-secondary'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <Button
@@ -247,18 +286,33 @@ export default function TranslateList() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-text-primary truncate flex-1">
-                        {order.title}
-                      </h3>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant={urgency.variant} dot>
+                    <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap mb-2 sm:mb-0">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-white text-xs font-medium bg-gradient-to-br',
+                            sceneGradient[order.scene] || sceneGradient.other
+                          )}
+                        >
+                          <SceneIcon className="w-3.5 h-3.5" />
+                          {sceneNameMap[order.scene] || '翻译'}
+                        </span>
+                        {order.clientId === 'u001' && (
+                          <Badge variant="info">我发布的</Badge>
+                        )}
+                        {order.translatorId === 'u001' && (
+                          <Badge variant="success">我接的</Badge>
+                        )}
+                        <Badge variant={urgency.variant}>
                           {urgency.label}
                         </Badge>
                         <Badge variant={status.variant} dot={status.dot}>
                           {status.label}
                         </Badge>
                       </div>
+                      <h3 className="text-lg font-bold text-text-primary flex-1 min-w-[200px]">
+                        {order.title}
+                      </h3>
                     </div>
 
                     <p className="text-sm text-text-tertiary mb-4 line-clamp-2">
@@ -308,7 +362,7 @@ export default function TranslateList() {
                       查看详情
                     </Button>
 
-                    {isVolunteer && isPending && (
+                    {isPending && roleFilter !== 'client' && (
                       <Button
                         variant="primary"
                         size="md"

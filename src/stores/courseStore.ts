@@ -15,7 +15,7 @@ interface CourseStore {
   fetchLesson: (id: string) => Promise<void>;
   fetchSubmittedExercise: (lessonId: string) => Promise<SubmittedExercise | null>;
   submitExercise: (submission: ExerciseSubmission) => Promise<ExerciseResult | null>;
-  markLessonComplete: (lessonId: string) => Promise<void>;
+  markLessonComplete: (lessonId: string, meta?: { courseId: string; lessonTitle: string }) => Promise<void>;
 }
 
 export const useCourseStore = create<CourseStore>()(
@@ -120,12 +120,12 @@ export const useCourseStore = create<CourseStore>()(
       }
     },
 
-    markLessonComplete: async (lessonId) => {
+    markLessonComplete: async (lessonId, meta) => {
       set((state) => {
         state.loading = true;
       });
       try {
-        await api.markLessonComplete(lessonId);
+        await api.markLessonComplete(lessonId, meta);
         set((state) => {
           if (state.currentLesson && state.currentLesson.id === lessonId) {
             state.currentLesson.completed = true;

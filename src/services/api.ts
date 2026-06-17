@@ -21,7 +21,7 @@ import type {
   CategoryRadarPoint,
   SubmittedExercise,
 } from '@/types';
-import { notifyLessonProgressChanged } from '@/lib/useCompletedLessons';
+import { markLessonCompletedExtended } from '@/lib/useCompletedLessons';
 import {
   mockUser,
   mockUserStats,
@@ -378,9 +378,12 @@ export const api = {
     return ok(all[lessonId] || null);
   },
 
-  async markLessonComplete(lessonId: string): Promise<ApiResponse<boolean>> {
-    markLessonCompleted(lessonId);
-    notifyLessonProgressChanged();
+  async markLessonComplete(lessonId: string, meta?: { courseId: string; lessonTitle: string }): Promise<ApiResponse<boolean>> {
+    if (meta) {
+      markLessonCompletedExtended(lessonId, meta);
+    } else {
+      markLessonCompleted(lessonId);
+    }
     return ok(true);
   },
 

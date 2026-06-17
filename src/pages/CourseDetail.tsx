@@ -33,7 +33,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import type { Lesson } from '@/types';
 import { mockLessons } from '@/mock/data';
-import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
+import { useCompletedLessonSet, useCompletedTimes, useLastLearned, formatCompletedAt } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 const levelTextMap: Record<string, string> = {
@@ -175,12 +175,36 @@ export default function CourseDetail() {
   }, [courseId, fetchCourse]);
 
   const completedSet = useCompletedLessonSet();
+  const completedTimes = useCompletedTimes();
+  const lastLearned = useLastLearned(courseId);
 
   const lessons: Lesson[] = useMemo(() => {
     if (!courseId) return [];
     const raw = mockLessons[courseId] || [];
     return raw.map((l) => ({ ...l, completed: completedSet.has(l.id) }));
   }, [courseId, completedSet]);
+
+  const recentCompleted = useMemo(() => {
+    if (!courseId) return [];
+    return lessons
+      .filter((l) => completedSet.has(l.id))
+      .map((l) => ({ lesson: l, record: completedTimes[l.id] }))
+      .filter((r) => r.record)
+      .sort((a, b) => b.record!.completedAt - a.record!.completedAt)
+      .slice(0, 3);
+  }, [lessons, completedSet, completedTimes, courseId]);
+
+  const nextLesson = useMemo(() => {
+    return lessons.find((l) => !l.completed) || lessons[0];
+  }, [lessons]);
+
+  const continueLesson = useMemo(() => {
+    if (lastLearned) {
+      const found = lessons.find((l) => l.id === lastLearned.lessonId);
+      if (found) return found;
+    }
+    return nextLesson;
+  }, [lessons, lastLearned, nextLesson]);
 
   const teacher = courseId
     ? mockTeachers[courseId] || { name: '专业教师', avatar: '', title: '', bio: '' }
@@ -349,35 +373,62 @@ export default function CourseDetail() {
               <TabsContent value="outline" currentValue={activeTab}>
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-5 p-4 bg-surface-bg rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary-600 flex items-center justify-center text-white">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-12 h-12 rounded-full bg-primary-600 flex items-center justify-center text-white shrink-0">
                         <BookOpen className="w-6 h-6" />
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="font-bold text-text-primary">学习进度</p>
                         <p className="text-sm text-text-tertiary">
                           已完成 {completedLessons} / {lessons.length} 课时
+                          {recentCompleted.length > 0 && recentCompleted[0].record && (
+                            <>
+                              <span className="mx-2 text-surface-muted">·</span>
+                              <span className="text-emerald-600 font-medium">
+                                最近：{recentCompleted[0].lesson.title}（{formatCompletedAt(recentCompleted[0].record.completedAt)}）
+                              </span>
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
-                    <div className="w-40">
-                      <ProgressBar
-                        value={completedLessons}
-                        max={lessons.length}
-                        color="orange"
-                        showPercentage
-                      />
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="w-32 hidden sm:block">
+                        <ProgressBar
+                          value={completedLessons}
+                          max={lessons.length}
+                          color="orange"
+                          showPercentage
+                        />
+                      </div>
+                      {continueLesson && (
+                        <Button
+                          size="md"
+                          rightIcon={<Play className="w-4 h-4" />}
+                          onClick={() => handleStartLesson(continueLesson.id)}
+                        >
+                          {lastLearned && lessons.find((l) => l.id === lastLearned.lessonId)
+                            ? '继续上次学习'
+                            : completedLessons > 0
+                            ? '继续学习'
+                            : '开始学习'}
+                        </Button>
+                      )}
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    {lessons.map((lesson, idx) => (
+                    {lessons.map((lesson, idx) => {
+                      const timeRecord = completedTimes[lesson.id];
+                      return (
                       <div
                         key={lesson.id}
                         className={cn(
                           'flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 cursor-pointer group',
                           lesson.completed
                             ? 'bg-emerald-50/50 border-emerald-200 hover:bg-emerald-50'
+                            : lastLearned?.lessonId === lesson.id
+                            ? 'bg-accent-orange-50 border-accent-orange-300 hover:bg-accent-orange-50/70 shadow-sm'
                             : idx === completedLessons
                             ? 'bg-accent-orange-50 border-accent-orange-300 hover:bg-accent-orange-50/70 shadow-sm'
                             : 'bg-surface-card border-surface-border hover:border-primary-200 hover:bg-surface-bg'
@@ -387,7 +438,7 @@ export default function CourseDetail() {
                         <div className="shrink-0">
                           {lesson.completed ? (
                             <CheckCircle2 className="w-7 h-7 text-emerald-500" />
-                          ) : idx === completedLessons ? (
+                          ) : lastLearned?.lessonId === lesson.id || idx === completedLessons ? (
                             <div className="w-7 h-7 rounded-full bg-accent-orange-500 flex items-center justify-center animate-breathe">
                               <Play className="w-3.5 h-3.5 text-white ml-0.5" fill="currentColor" />
                             </div>
@@ -400,9 +451,9 @@ export default function CourseDetail() {
                             <span className="text-xs font-semibold text-text-tertiary">
                               第{idx + 1}课
                             </span>
-                            {idx === completedLessons && !lesson.completed && (
+                            {(lastLearned?.lessonId === lesson.id || (idx === completedLessons && !lesson.completed)) && (
                               <Badge variant="warning" className="bg-accent-orange-100 text-accent-orange-600 border-accent-orange-200">
-                                进行中
+                                {lastLearned?.lessonId === lesson.id ? '最近学习' : '进行中'}
                               </Badge>
                             )}
                             {lesson.completed && (
@@ -411,10 +462,18 @@ export default function CourseDetail() {
                           </div>
                           <h4 className={cn(
                             'font-semibold truncate',
-                            idx === completedLessons ? 'text-accent-orange-600' : 'text-text-primary'
+                            lastLearned?.lessonId === lesson.id || idx === completedLessons
+                              ? 'text-accent-orange-600'
+                              : 'text-text-primary'
                           )}>
                             {lesson.title}
                           </h4>
+                          {timeRecord && (
+                            <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3" />
+                              {formatCompletedAt(timeRecord.completedAt)}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
                           <span className="text-sm text-text-tertiary flex items-center gap-1">
@@ -427,7 +486,7 @@ export default function CourseDetail() {
                           )} />
                         </div>
                       </div>
-                    ))}
+                    ); })}
                   </div>
                 </div>
               </TabsContent>

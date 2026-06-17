@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Clock,
   BookOpen,
@@ -7,6 +8,10 @@ import {
   Calendar,
   Trophy,
   Lock,
+  Play,
+  ChevronRight,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import {
   BarChart,
@@ -24,12 +29,14 @@ import {
   Cell,
 } from 'recharts';
 import { useUserStore } from '@/stores/userStore';
+import { useCourseStore } from '@/stores/courseStore';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
-import { mockWeeklyTrend, mockCategoryRadar, mockBadges, mockLessons } from '@/mock/data';
-import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
+import { Button } from '@/components/ui/Button';
+import { mockWeeklyTrend, mockCategoryRadar, mockBadges, mockLessons, mockCourses } from '@/mock/data';
+import { useCompletedLessonSet, useCompletedTimes, useLastLearned, formatCompletedAt } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 interface AchievementBadge {
@@ -47,14 +54,69 @@ interface AchievementBadge {
 }
 
 export default function Progress() {
+  const navigate = useNavigate();
   const { user, userStats, fetchUser, fetchUserStats } = useUserStore();
+  const { fetchCourses, courses } = useCourseStore();
   const completedSet = useCompletedLessonSet();
+  const completedTimes = useCompletedTimes();
+  const globalLastLearned = useLastLearned();
+
+  useEffect(() => {
+    fetchUser();
+    fetchUserStats();
+    fetchCourses();
+  }, [fetchUser, fetchUserStats, fetchCourses]);
 
   const totalLessonsCount = useMemo(
     () => Object.values(mockLessons).flat().length,
     []
   );
   const completedLessonsCount = completedSet.size;
+
+  const courseGroups = useMemo(() => {
+    const all = [...(courses.length > 0 ? courses : mockCourses)];
+    return all
+      .map((course) => {
+        const lessons = mockLessons[course.id] || [];
+        const doneLessons = lessons.filter((l) => completedSet.has(l.id));
+        const doneRecords = doneLessons
+          .map((l) => ({ lesson: l, record: completedTimes[l.id] }))
+          .filter((r) => r.record)
+          .sort((a, b) => b.record.completedAt - a.record.completedAt);
+        const lastDone = doneRecords[0];
+        const next = lessons.find((l) => !completedSet.has(l.id)) || lessons[0];
+        const lastVisitedAt = (() => {
+          try {
+            const raw = localStorage.getItem('signlang_last_learned');
+            const parsed = raw ? JSON.parse(raw) : {};
+            return parsed[course.id] || null;
+          } catch {
+            return null;
+          }
+        })();
+        const lastVisitedLesson = lastVisitedAt
+          ? lessons.find((l) => l.id === lastVisitedAt.lessonId) || next
+          : next;
+        const lastDoneTs = lastDone?.record?.completedAt || 0;
+        const lastVisitTs = lastVisitedAt?.visitedAt || 0;
+        return {
+          course,
+          lessons,
+          doneLessons,
+          progress: lessons.length > 0 ? doneLessons.length / lessons.length : 0,
+          lastDone,
+          nextLesson: next,
+          lastVisitedLesson,
+          hasActivity: doneLessons.length > 0 || !!lastVisitedAt,
+          lastActivityAt: Math.max(lastDoneTs, lastVisitTs),
+        };
+      })
+      .sort((a, b) => {
+        if (!!a.lastDone && !b.lastDone) return -1;
+        if (!a.lastDone && !!b.lastDone) return 1;
+        return b.lastActivityAt - a.lastActivityAt;
+      });
+  }, [courses, completedSet, completedTimes]);
 
   useEffect(() => {
     fetchUser();
@@ -320,6 +382,138 @@ export default function Progress() {
               </CardBody>
             </Card>
           </div>
+        </section>
+
+        <section className="mb-8 animate-fade-in-up stagger-7">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-primary-600" />
+                学习记录
+              </CardTitle>
+              <CardDescription>按课程分组查看学习进度，可一键继续上次进度</CardDescription>
+            </CardHeader>
+            <CardBody>
+              {courseGroups.filter((g) => g.hasActivity).length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-bg flex items-center justify-center">
+                    <BookOpen className="w-8 h-8 text-surface-muted" />
+                  </div>
+                  <h3 className="font-bold text-text-primary mb-2">还没有学习记录</h3>
+                  <p className="text-sm text-text-tertiary max-w-sm mx-auto mb-6">
+                    从课程列表选择感兴趣的课程开始学习吧！每完成一个课时都会在这里留下记录。
+                  </p>
+                  <Button onClick={() => navigate('/courses')} rightIcon={<ArrowRight className="w-4 h-4" />}>
+                    去浏览课程
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {courseGroups.filter((g) => g.hasActivity).map((group, idx) => (
+                    <div
+                      key={group.course.id}
+                      className={cn(
+                        'border border-surface-border/60 rounded-2xl overflow-hidden hover:shadow-card-hover hover:border-primary-200 transition-all duration-300',
+                        'animate-fade-in-up'
+                      )}
+                      style={{ animationDelay: `${idx * 60}ms` }}
+                    >
+                      <div className="flex flex-col md:flex-row">
+                        <div
+                          className="md:w-52 h-40 md:h-auto bg-cover bg-center relative shrink-0 cursor-pointer"
+                          style={{ backgroundImage: `url(${group.course.cover})` }}
+                          onClick={() => navigate(`/courses/${group.course.id}`)}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                          <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
+                            <Badge variant="info">{Math.round(group.progress * 100)}%</Badge>
+                          </div>
+                        </div>
+                        <div className="flex-1 p-5 flex flex-col justify-between gap-4">
+                          <div>
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div>
+                                <h3
+                                  className="font-bold text-text-primary text-lg mb-1 hover:text-primary-600 cursor-pointer transition-colors"
+                                  onClick={() => navigate(`/courses/${group.course.id}`)}
+                                >
+                                  {group.course.title}
+                                </h3>
+                                <p className="text-sm text-text-tertiary line-clamp-1">
+                                  {group.course.description}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-tertiary">
+                              <span className="flex items-center gap-1">
+                                <BookOpen className="w-4 h-4" />
+                                {group.doneLessons.length} / {group.lessons.length} 课时
+                              </span>
+                              {group.lastDone?.record && (
+                                <span className="flex items-center gap-1 text-emerald-600">
+                                  <Sparkles className="w-4 h-4" />
+                                  最近完成：{group.lastDone.lesson.title}（{formatCompletedAt(group.lastDone.record.completedAt)}）
+                                </span>
+                              )}
+                              {group.lastVisitedLesson && !group.lastDone && (
+                                <span className="flex items-center gap-1 text-accent-orange-500">
+                                  <Clock className="w-4 h-4" />
+                                  最近学到：{group.lastVisitedLesson.title}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-3">
+                              <ProgressBar
+                                value={group.doneLessons.length}
+                                max={group.lessons.length}
+                                color="orange"
+                                showPercentage
+                              />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-surface-border/40">
+                            <div className="flex flex-wrap gap-2 max-w-[60%]">
+                              {group.doneLessons.slice(0, 5).map((l) => (
+                                <Badge key={l.id} variant="success" className="text-xs">
+                                  ✓ {l.title}
+                                </Badge>
+                              ))}
+                              {group.doneLessons.length > 5 && (
+                                <Badge variant="default" className="text-xs">
+                                  +{group.doneLessons.length - 5} 更多
+                                </Badge>
+                              )}
+                              {group.doneLessons.length === 0 && (
+                                <span className="text-xs text-text-tertiary">尚未完成任何课时</span>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => navigate(`/courses/${group.course.id}`)}
+                              >
+                                查看详情
+                              </Button>
+                              <Button
+                                size="sm"
+                                leftIcon={<Play className="w-4 h-4" />}
+                                onClick={() =>
+                                  navigate(`/courses/${group.course.id}/learn/${group.lastVisitedLesson?.id || group.nextLesson?.id}`)
+                                }
+                              >
+                                {group.lastDone || group.lastVisitedLesson ? '继续学习' : '开始学习'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
         </section>
 
         <section className="mb-8 animate-fade-in-up stagger-7">

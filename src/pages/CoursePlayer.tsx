@@ -40,7 +40,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import type { Lesson, SubmittedExercise } from '@/types';
 import { mockLessons } from '@/mock/data';
-import { useCompletedLessonSet } from '@/lib/useCompletedLessons';
+import { useCompletedLessonSet, markLessonVisited } from '@/lib/useCompletedLessons';
 import { cn } from '@/lib/utils';
 
 const gestureMarkers = [
@@ -118,6 +118,12 @@ export default function CoursePlayer() {
   }, [lessonId, fetchLesson, fetchSubmittedExercise]);
 
   useEffect(() => {
+    if (courseId && lessonId) {
+      markLessonVisited(courseId, lessonId);
+    }
+  }, [courseId, lessonId]);
+
+  useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
       setCurrentTime((prev) => {
@@ -151,9 +157,44 @@ export default function CoursePlayer() {
     return raw.map((l) => ({ ...l, completed: completedSet.has(l.id) }));
   }, [courseId, completedSet]);
 
+  if (!courseId || !lessonId) {
+    return (
+      <div className="min-h-full flex items-center justify-center py-24">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-text-primary mb-2">参数错误</h3>
+          <p className="text-text-tertiary mb-6">课程或课时参数缺失</p>
+          <Button onClick={() => navigate('/courses')}>返回课程列表</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (lessons.length === 0) {
+    return (
+      <div className="min-h-full flex items-center justify-center py-24">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-text-primary mb-2">课程不存在</h3>
+          <p className="text-text-tertiary mb-6">找不到该课程或该课程暂无课时</p>
+          <Button onClick={() => navigate('/courses')}>返回课程列表</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && !currentLesson) {
+    return (
+      <div className="min-h-full flex items-center justify-center py-24">
+        <div className="text-text-tertiary">加载中...</div>
+      </div>
+    );
+  }
+
   const handleMarkComplete = async () => {
     if (!lessonId) return;
-    await markLessonComplete(lessonId);
+    await markLessonComplete(lessonId, {
+      courseId: courseId || '',
+      lessonTitle: currentLesson?.title || '',
+    });
   };
 
   const handleSubmitExercise = async () => {
